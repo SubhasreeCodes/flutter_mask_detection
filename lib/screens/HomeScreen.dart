@@ -1,14 +1,70 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_tflite/flutter_tflite.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
+
 class _HomeScreenState extends State<HomeScreen> {
   File? _selectedImage;
+  String _result = "";
+
+  @override
+  void initState() {
+    super.initState();
+    loadModel();
+  }
+
+  @override
+  void dispose() {
+    Tflite.close();
+    super.dispose();
+  }
+
+  Future<void> loadModel() async {
+    try {
+      String? res = await Tflite.loadModel(
+        model: "assets/tensorflow/model.tflite",
+        labels: "assets/tensorflow/labels.txt",
+      );
+      print("Model loaded: $res");
+    } catch (e) {
+      print("Failed to load model: $e");
+    }
+  }
+
+  Future<void> classifyImage(File image) async {
+    try {
+      var recognitions = await Tflite.runModelOnImage(
+        path: image.path,
+        imageMean: 0.0,
+        imageStd: 255.0,
+        numResults: 2,
+        threshold: 0.5,
+      );
+      if (recognitions != null && recognitions.isNotEmpty) {
+        setState(() {
+          // Checking the label to determine if it's "mask" or "without mask"
+          _result = recognitions.first["label"] == "mask" ? "Mask" : "Without Mask";
+        });
+        print(_result);
+      } else {
+        setState(() {
+          _result = "No result found.";
+        });
+      }
+    } catch (e) {
+      print("Error in classification: $e");
+      setState(() {
+        _result = "Error in classification.";
+      });
+    }
+  }
+
   Future<void> pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: source);
@@ -16,6 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _selectedImage = File(pickedFile.path);
       });
+      // After picking the image, classify it
+      classifyImage(_selectedImage!);
     } else {
       // Handle the case when no image is selected or captured.
       ScaffoldMessenger.of(context).showSnackBar(
@@ -23,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,6 +117,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(fontSize: 18, color: Colors.grey),
                 ),
               ),
+            ),
+            const SizedBox(height: 20),
+            // Result Display
+            Text(
+              _result.isNotEmpty ? "Prediction: $_result" : "",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             // Buttons for Picking Image
