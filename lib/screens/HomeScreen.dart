@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> loadModel() async {
     try {
       String? res = await Tflite.loadModel(
-        model: "assets/tensorflow/model.tflite",
+        model: "assets/tensorflow/model_unquant.tflite",
         labels: "assets/tensorflow/labels.txt",
       );
       print("Model loaded: $res");
